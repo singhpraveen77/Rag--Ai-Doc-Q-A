@@ -1,5 +1,5 @@
 import Groq from "groq-sdk";
-import { getVectorStore } from "../utils/vectorStore.js";
+import { queryVectorStore } from "../utils/vectorStore.js";
 
 export class RagError extends Error {
   constructor(message, cause) {
@@ -13,13 +13,10 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export async function getAnswer(question) {
   try {
-    const store = await getVectorStore();
-    if (!store) throw new RagError("No documents uploaded yet");
+    const chunks = await queryVectorStore(question, 5);
+    if (!chunks.length) return "I don't know";
 
-    const chunks = await store.similaritySearch(question, 5);
-    if (!chunks || chunks.length === 0) return "I don't know";
-
-    const context = chunks.map((c) => c.pageContent).join("\n\n");
+    const context = chunks.join("\n\n");
 
     const completion = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",

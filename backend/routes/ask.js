@@ -1,6 +1,6 @@
 import express from "express";
 import Groq from "groq-sdk";
-import { getVectorStore } from "../utils/vectorStore.js";
+import { queryVectorStore } from "../utils/vectorStore.js";
 
 const router = express.Router();
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -13,13 +13,12 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Question is required" });
     }
 
-    const vectorStore = await getVectorStore();
-    if (!vectorStore) {
+    const chunks = await queryVectorStore(question, 3);
+    if (!chunks.length) {
       return res.status(404).json({ error: "No documents uploaded yet" });
     }
 
-    const results = await vectorStore.similaritySearch(question, 3);
-    const context = results.map(r => r.pageContent).join("\n\n");
+    const context = chunks.join("\n\n");
 
     const completion = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
