@@ -52,6 +52,9 @@ function UploadSection({
       {uploadStatus === 'success' && (
         <div className="status-badge success">✓ Ready to Query</div>
       )}
+      {uploadStatus === 'error' && (
+        <div className="status-badge error">✗ Upload failed</div>
+      )}
     </section>
   );
 }

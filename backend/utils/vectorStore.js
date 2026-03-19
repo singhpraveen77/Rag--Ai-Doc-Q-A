@@ -1,5 +1,6 @@
 import { Pinecone } from "@pinecone-database/pinecone";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
+import { randomUUID } from "crypto";
 
 const INDEX_NAME = process.env.PINECONE_INDEX || "documents";
 
@@ -14,9 +15,10 @@ const getPineconeIndex = () => {
   return pc.Index(INDEX_NAME);
 };
 
-// Embed docs and upsert into Pinecone
+// Embed docs and upsert into Pinecone, returns sessionId
 export async function createVectorStore(docs) {
-  console.log(`Embedding and storing ${docs.length} chunks in Pinecone...`);
+  const sessionId = randomUUID();
+  console.log(`Session: ${sessionId} — embedding ${docs.length} chunks...`);
 
   const embeddings = getEmbeddings();
   const index = getPineconeIndex();
@@ -24,11 +26,8 @@ export async function createVectorStore(docs) {
   const texts = docs.map(d => d.pageContent);
   const vectors = await embeddings.embedDocuments(texts);
 
-  console.log(`Got ${vectors.length} vectors`);
-
   const records = vectors
     .map((values, i) => {
-      // Pinecone only allows flat metadata: string, number, boolean, or string[]
       const rawMeta = docs[i].metadata || {};
       const safeMeta = Object.fromEntries(
         Object.entries(rawMeta).filter(([, v]) =>
@@ -37,35 +36,29 @@ export async function createVectorStore(docs) {
         )
       );
       return {
-        id: `chunk-${Date.now()}-${i}`,
+        id: `chunk-${sessionId}-${i}`,
         values,
-        metadata: { text: docs[i].pageContent, ...safeMeta },
+        metadata: { text: docs[i].pageContent, sessionId, ...safeMeta },
       };
     })
     .filter(r => Array.isArray(r.values) && r.values.length > 0);
-
-  console.log(`Records after filter: ${records.length}`);
-  if (records.length > 0) {
-    console.log(`First record vector length: ${records[0].values.length}`);
-  }
 
   if (records.length === 0) {
     throw new Error("Embedding returned no valid vectors");
   }
 
-  // Upsert in batches of 100
   const batchSize = 100;
   for (let i = 0; i < records.length; i += batchSize) {
     const batch = records.slice(i, i + batchSize);
-    console.log(`Upserting batch ${Math.floor(i / batchSize) + 1} (${batch.length} records)...`);
     await index.upsert({ records: batch });
   }
 
-  console.log("✅ Vectors stored in Pinecone");
+  console.log(`✅ Stored ${records.length} vectors for session ${sessionId}`);
+  return sessionId;
 }
 
-// Query Pinecone for similar chunks
-export async function queryVectorStore(question, topK = 3) {
+// Query Pinecone filtered by sessionId
+export async function queryVectorStore(question, sessionId, topK = 6) {
   const embeddings = getEmbeddings();
   const index = getPineconeIndex();
 
@@ -74,6 +67,7 @@ export async function queryVectorStore(question, topK = 3) {
     vector: queryVector,
     topK,
     includeMetadata: true,
+    filter: { sessionId: { $eq: sessionId } },
   });
 
   return results.matches?.map(m => m.metadata?.text || "") || [];

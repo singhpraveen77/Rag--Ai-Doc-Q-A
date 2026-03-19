@@ -34,7 +34,7 @@ router.post("/", upload.single("pdf"), async (req, res) => {
     console.log(`Split into ${splitDocs.length} chunks.`);
 
     console.log("Initializing Vector Store creation...");
-    await createVectorStore(splitDocs);
+    const sessionId = await createVectorStore(splitDocs);
     console.log("Vector Store successfully created.");
 
     // Clean up uploaded file
@@ -42,7 +42,7 @@ router.post("/", upload.single("pdf"), async (req, res) => {
     fs.unlinkSync(filePath);
 
     console.log("--- Upload Process Complete ---");
-    res.json({ message: "File uploaded and processed successfully" });
+    res.json({ message: "File uploaded and processed successfully", sessionId });
   } catch (err) {
     console.error("!!! Error during upload process !!!");
     console.error("Error Message:", err.message);

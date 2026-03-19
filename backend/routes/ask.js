@@ -7,15 +7,18 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 router.post("/", async (req, res) => {
   try {
-    const { question } = req.body;
+    const { question, sessionId } = req.body;
 
     if (!question || !question.trim()) {
       return res.status(400).json({ error: "Question is required" });
     }
+    if (!sessionId) {
+      return res.status(400).json({ error: "No document session found. Please upload a document first." });
+    }
 
-    const chunks = await queryVectorStore(question, 3);
+    const chunks = await queryVectorStore(question, sessionId, 6);
     if (!chunks.length) {
-      return res.status(404).json({ error: "No documents uploaded yet" });
+      return res.status(404).json({ error: "No relevant content found in the document." });
     }
 
     const context = chunks.join("\n\n");
@@ -25,14 +28,16 @@ router.post("/", async (req, res) => {
       messages: [
         {
           role: "system",
-          content: "You are an AI assistant. Answer ONLY from the provided context. If the answer is not in the context, say 'I don't know'.",
+          content: `You are a helpful document assistant. Answer the user's question using the provided context from the uploaded document.
+Be specific and extract exact information (names, dates, numbers) when present.
+If the answer is clearly not in the context, say "I couldn't find that information in the document."`,
         },
         {
           role: "user",
-          content: `Context:\n${context}\n\nQuestion: ${question}`,
+          content: `Context from document:\n${context}\n\nQuestion: ${question}`,
         },
       ],
-      temperature: 0.3,
+      temperature: 0.1,
       max_tokens: 1024,
     });
 

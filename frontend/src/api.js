@@ -6,6 +6,6 @@ export const uploadPDF = (formData) => {
   return axios.post(`${API_BASE_URL}/upload`, formData);
 };
 
-export const askQuestion = (question) => {
-  return axios.post(`${API_BASE_URL}/ask`, { question });
+export const askQuestion = (question, sessionId) => {
+  return axios.post(`${API_BASE_URL}/ask`, { question, sessionId });
 };

@@ -8,6 +8,7 @@ function App() {
   const [file, setFile] = useState(null);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
 
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState([]);
@@ -22,15 +23,17 @@ function App() {
     formData.append('pdf', file);
 
     try {
-      await uploadPDF(formData);
-
+      const res = await uploadPDF(formData);
+      setSessionId(res.data.sessionId);
       setUploadStatus('success');
       setMessages(prev => [
         ...prev,
         { role: 'ai', text: 'Document uploaded! Ask questions now.' }
       ]);
-    } catch {
+    } catch (err) {
+      const msg = err?.response?.data?.error || 'Upload failed. Please try again.';
       setUploadStatus('error');
+      setMessages(prev => [...prev, { role: 'ai', text: `❌ ${msg}` }]);
     } finally {
       setIsUploading(false);
     }
@@ -46,16 +49,17 @@ function App() {
     setIsAsking(true);
 
     try {
-      const res = await askQuestion(q);
+      const res = await askQuestion(q, sessionId);
 
       setMessages(prev => [
         ...prev,
         { role: 'ai', text: res.data.answer }
       ]);
-    } catch {
+    } catch (err) {
+      const msg = err?.response?.data?.error || 'Something went wrong. Please try again.';
       setMessages(prev => [
         ...prev,
-        { role: 'ai', text: 'Error occurred.' }
+        { role: 'ai', text: `❌ ${msg}` }
       ]);
     } finally {
       setIsAsking(false);
