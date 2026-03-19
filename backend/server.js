@@ -25,10 +25,14 @@ app.use("/ask", askRoute);
 app.use("/", (req,res)=>{
     return res.send("working !!")
 });
+const PORT = process.env.PORT || 3000;
 
-const server = app.listen(3000, () => {
-  console.log("Server running on port 3000");
+const server = app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
+
+
+
 
 // Allow up to 90s for slow Gemini responses
 server.timeout = 90000;
